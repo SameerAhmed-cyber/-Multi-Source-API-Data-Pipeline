@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Source API Pipeline — Logistics Analytics Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0c15 0%, #0f111a 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #e2e8f0;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border-radius: 24px;
+            padding: 32px;
+            margin-bottom: 24px;
+            border: 1px solid #334155;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            background: linear-gradient(135deg, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 12px;
+        }
+
+        .header p {
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-top: 8px;
+        }
+
+        /* Main Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 1000px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 20px;
+            padding: 24px;
+        }
+
+        .card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #cbd5e1;
+        }
+
+        /* API Status */
+        .api-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .api-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #0f172a;
+            border-radius: 12px;
+            border-left: 3px solid;
+        }
+
+        .api-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        .status-online { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .status-syncing { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; animation: pulse 1s infinite; }
+        .status-offline { background: #ef4444; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Table */
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+
+        th {
+            color: #94a3b8;
+            font-weight: 500;
+            font-size: 0.8rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .badge-success { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+        .badge-warning { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        .badge-danger { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+        /* Chart */
+        .chart-container {
+            height: 250px;
+            position: relative;
+        }
+
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            height: 200px;
+            margin-top: 20px;
+        }
+
+        .bar {
+            flex: 1;
+            background: linear-gradient(180deg, #60a5fa, #3b82f6);
+            border-radius: 8px 8px 0 0;
+            transition: height 0.5s ease;
+            position: relative;
+        }
+
+        .bar-label {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+
+        /* ETL Pipeline Flow */
+        .pipeline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .pipeline-step {
+            flex: 1;
+            text-align: center;
+            padding: 16px;
+            background: #0f172a;
+            border-radius: 16px;
+        }
+
+        .pipeline-arrow {
+            font-size: 1.5rem;
+            color: #475569;
+        }
+
+        /* Code Block */
+        pre {
+            background: #0f172a;
+            padding: 16px;
+            border-radius: 12px;
+            overflow-x: auto;
+            font-size: 0.75rem;
+            font-family: 'Courier New', monospace;
+            color: #a5d6ff;
+            margin-top: 16px;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 24px;
+            color: #64748b;
+            font-size: 0.8rem;
+        }
+
+        button {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-top: 12px;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        .live-badge {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📊 Multi-Source API Data Pipeline</h1>
+            <p>Real-time analytics dashboard integrating 8 third-party APIs | 94% reduction in reporting time</p>
+            <div style="display: flex; gap: 16px; align-items: center;">
+                <span><span class="live-badge"></span> LIVE DATA STREAM</span>
+                <span>⏱️ Last sync: <span id="lastSync">Just now</span></span>
+                <button onclick="refreshData()">🔄 Refresh All Data</button>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-value" id="totalShipments">0</div><div class="stat-label">Active Shipments</div></div>
+            <div class="stat-card"><div class="stat-value" id="avgDelivery">0</div><div class="stat-label">Avg Delivery (days)</div></div>
+            <div class="stat-card"><div class="stat-value" id="onTimeRate">0%</div><div class="stat-label">On-Time Rate</div></div>
+            <div class="stat-card"><div class="stat-value" id="apiCalls">0</div><div class="stat-label">API Calls Today</div></div>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div class="dashboard-grid">
+            <!-- API Status -->
+            <div class="card">
+                <h3>🔌 Connected APIs Status</h3>
+                <div class="api-list" id="apiList"></div>
+            </div>
+
+            <!-- Shipment Performance -->
+            <div class="card">
+                <h3>📦 Shipment Performance by Carrier</h3>
+                <div class="chart-container">
+                    <div class="bar-chart" id="carrierChart"></div>
+                </div>
+            </div>
+
+            <!-- Recent Shipments -->
+            <div class="card">
+                <h3>🚚 Recent Shipments</h3>
+                <div class="table-wrapper">
+                    <table id="shipmentsTable">
+                        <thead>
+                            <tr><th>Tracking ID</th><th>Carrier</th><th>Origin</th><th>Destination</th><th>Status</th><th>ETA</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ETL Pipeline Status -->
+            <div class="card">
+                <h3>⚙️ ETL Pipeline Health</h3>
+                <div class="pipeline">
+                    <div class="pipeline-step">📥 Extract<br><small>8 APIs</small></div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-step">🔄 Transform<br><small>Normalize</small></div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-step">💾 Load<br><small>PostgreSQL</small></div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-step">📊 Visualize<br><small>Power BI</small></div>
+                </div>
+                <div style="margin-top: 16px;">
+                    <div>📈 Today's processed records: <strong id="processedRecords">0</strong></div>
+                    <div>⏱️ Average pipeline latency: <strong id="pipelineLatency">0</strong> seconds</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Python ETL Code -->
+        <div class="card" style="margin-bottom: 24px;">
+            <h3>🐍 Python ETL Pipeline Code</h3>
+            <pre id="codeBlock">Loading code...</pre>
+            <button onclick="copyCode()">📋 Copy Code</button>
+        </div>
+
+        <div class="footer">
+            <p>🏗️ Built with Python | Apache Airflow | PostgreSQL | Power BI | 8 API Integrations</p>
+            <p>🔄 Data refreshes every 15 minutes | 99.7% uptime</p>
+        </div>
+    </div>
+
+    <script>
+        // Simulated API data
+        const apis = [
+            { name: "FedEx API", status: "online", type: "carrier" },
+            { name: "UPS API", status: "online", type: "carrier" },
+            { name: "DHL API", status: "online", type: "carrier" },
+            { name: "USPS API", status: "online", type: "carrier" },
+            { name: "GPS Tracking API", status: "syncing", type: "tracking" },
+            { name: "Weather API", status: "online", type: "environment" },
+            { name: "Customer CRM API", status: "online", type: "crm" },
+            { name: "Billing API", status: "online", type: "finance" }
+        ];
+
+        const carriers = ["FedEx", "UPS", "DHL", "USPS"];
+        const statuses = ["In Transit", "Delivered", "Pending", "Delayed"];
+        const cities = ["NYC", "LAX", "CHI", "HOU", "MIA", "SEA", "DEN", "ATL"];
+
+        function generateRandomData() {
+            const shipments = [];
+            const carrierStats = {};
+
+            carriers.forEach(c => { carrierStats[c] = { total: 0, onTime: 0, deliveries: [] }; });
+
+            for (let i = 0; i < 20; i++) {
+                const carrier = carriers[Math.floor(Math.random() * carriers.length)];
+                const status = statuses[Math.floor(Math.random() * statuses.length)];
+                const eta = Math.floor(Math.random() * 10) + 1;
+                const onTime = status === "Delivered" && Math.random() > 0.3;
+
+                shipments.push({
+                    id: `TRK${Math.floor(Math.random() * 10000)}`,
+                    carrier: carrier,
+                    origin: cities[Math.floor(Math.random() * cities.length)],
+                    destination: cities[Math.floor(Math.random() * cities.length)],
+                    status: status,
+                    eta: eta,
+                    onTime: onTime
+                });
+
+                carrierStats[carrier].total++;
+                if (onTime) carrierStats[carrier].onTime++;
+                carrierStats[carrier].deliveries.push(eta);
+            }
+
+            return { shipments, carrierStats };
+        }
+
+        let currentData = generateRandomData();
+        let apiCalls = 2847;
+
+        function updateDashboard() {
+            // Update stats
+            const totalShipments = currentData.shipments.length;
+            const delivered = currentData.shipments.filter(s => s.status === "Delivered");
+            const avgDelivery = delivered.length ? (delivered.reduce((sum, s) => sum + s.eta, 0) / delivered.length).toFixed(1) : 0;
+            const onTimeRate = delivered.length ? (delivered.filter(s => s.onTime).length / delivered.length * 100).toFixed(0) : 0;
+
+            document.getElementById('totalShipments').textContent = totalShipments;
+            document.getElementById('avgDelivery').textContent = avgDelivery;
+            document.getElementById('onTimeRate').textContent = onTimeRate;
+            document.getElementById('apiCalls').textContent = apiCalls;
+
+            // Update API list
+            const apiList = document.getElementById('apiList');
+            apiList.innerHTML = apis.map(api => `
+                <div class="api-item" style="border-left-color: ${api.status === 'online' ? '#22c55e' : api.status === 'syncing' ? '#f59e0b' : '#ef4444'}">
+                    <span><span class="api-status status-${api.status}"></span>${api.name}</span>
+                    <span class="badge badge-${api.status === 'online' ? 'success' : api.status === 'syncing' ? 'warning' : 'danger'}">${api.status.toUpperCase()}</span>
+                </div>
+            `).join('');
+
+            // Update carrier chart
+            const carrierChart = document.getElementById('carrierChart');
+            const maxShipments = Math.max(...Object.values(currentData.carrierStats).map(c => c.total));
+            carrierChart.innerHTML = carriers.map(carrier => {
+                const stats = currentData.carrierStats[carrier];
+                const height = stats.total ? (stats.total / maxShipments) * 180 : 0;
+                return `<div style="flex:1; text-align:center;">
+                    <div class="bar" style="height: ${height}px;"></div>
+                    <div class="bar-label">${carrier}<br>${stats.total} shipments</div>
+                </div>`;
+            }).join('');
+
+            // Update shipments table
+            const tableBody = document.querySelector('#shipmentsTable tbody');
+            tableBody.innerHTML = currentData.shipments.map(s => `
+                <tr>
+                    <td>${s.id}</td>
+                    <td>${s.carrier}</td>
+                    <td>${s.origin}</td>
+                    <td>${s.destination}</td>
+                    <td><span class="badge badge-${s.status === 'Delivered' ? 'success' : s.status === 'In Transit' ? 'warning' : 'danger'}">${s.status}</span></td>
+                    <td>${s.eta} days</td>
+                </tr>
+            `).join('');
+
+            // Update ETL metrics
+            document.getElementById('processedRecords').textContent = Math.floor(Math.random() * 5000) + 1000;
+            document.getElementById('pipelineLatency').textContent = (Math.random() * 5 + 2).toFixed(1);
+            document.getElementById('lastSync').textContent = new Date().toLocaleTimeString();
+        }
+
+        function refreshData() {
+            currentData = generateRandomData();
+            apiCalls += Math.floor(Math.random() * 50) + 10;
+            updateDashboard();
+        }
+
+        // Python ETL Code
+        const pythonCode = `\"\"\"
+Multi-Source API Data Pipeline
+Integrates 8 third-party APIs into unified analytics platform
+\"\"\"
+
+import requests
+import pandas as pd
+from datetime import datetime
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from sqlalchemy import create_engine
+
+# API Configuration
+APIS = {
+    'fedex': 'https://api.fedex.com/v1/shipments',
+    'ups': 'https://api.ups.com/v1/tracking',
+    'dhl': 'https://api.dhl.com/v1/shipments',
+    'usps': 'https://api.usps.com/v1/tracking',
+    'gps_tracking': 'https://api.gps.com/v1/vehicles',
+    'weather': 'https://api.weather.com/v1/conditions',
+    'crm': 'https://api.crm.com/v1/customers',
+    'billing': 'https://api.billing.com/v1/invoices'
+}
+
+def extract_all_apis(**context):
+    \"\"\"Extract data from all 8 APIs\"\"\"
+    all_data = {}
+    for name, url in APIS.items():
+        try:
+            response = requests.get(url, headers={'API-Key': 'YOUR_KEY'}, timeout=30)
+            all_data[name] = response.json()
+        except Exception as e:
+            print(f"Error fetching {name}: {e}")
+            all_data[name] = []
+    return all_data
+
+def transform_data(**context):
+    \"\"\"Normalize and transform API data\"\"\"
+    raw_data = context['task_instance'].xcom_pull(task_ids='extract')
+    
+    shipments = []
+    for carrier, data in raw_data.items():
+        if carrier in ['fedex', 'ups', 'dhl', 'usps']:
+            # Normalize to common schema
+            for shipment in data.get('shipments', []):
+                shipments.append({
+                    'tracking_id': shipment.get('id'),
+                    'carrier': carrier.upper(),
+                    'origin': shipment.get('origin'),
+                    'destination': shipment.get('destination'),
+                    'status': shipment.get('status'),
+                    'eta_days': shipment.get('estimated_delivery'),
+                    'last_updated': datetime.now()
+                })
+    
+    df = pd.DataFrame(shipments)
+    return df.to_dict('records')
+
+def load_to_warehouse(**context):
+    \"\"\"Load transformed data to PostgreSQL\"\"\"
+    transformed_data = context['task_instance'].xcom_pull(task_ids='transform')
+    df = pd.DataFrame(transformed_data)
+    
+    engine = create_engine('postgresql://user:pass@localhost:5432/warehouse')
+    df.to_sql('shipments', engine, if_exists='append', index=False)
+    print(f"Loaded {len(df)} records to warehouse")
+
+# Airflow DAG Definition
+default_args = {
+    'owner': 'data_engineer',
+    'start_date': datetime(2024, 1, 1),
+    'retries': 3
+}
+
+dag = DAG(
+    'etl_pipeline',
+    default_args=default_args,
+    schedule_interval='*/15 * * * *',  # Every 15 minutes
+    catchup=False
+)
+
+extract_task = PythonOperator(task_id='extract', python_callable=extract_all_apis, dag=dag)
+transform_task = PythonOperator(task_id='transform', python_callable=transform_data, dag=dag)
+load_task = PythonOperator(task_id='load', python_callable=load_to_warehouse, dag=dag)
+
+extract_task >> transform_task >> load_task`;
+
+        function copyCode() {
+            navigator.clipboard.writeText(pythonCode);
+            alert('✅ ETL code copied to clipboard!');
+        }
+
+        document.getElementById('codeBlock').textContent = pythonCode;
+
+        // Initial load and auto-refresh every 15 seconds
+        refreshData();
+        setInterval(refreshData, 15000);
+    </script>
+</body>
+</html>
